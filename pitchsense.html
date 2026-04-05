@@ -1,0 +1,476 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PitchSense — AI Pitch Deck Auditor</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #f5f5f3;
+      color: #1a1a1a;
+      min-height: 100vh;
+      padding: 2rem 1rem;
+    }
+
+    .app {
+      max-width: 760px;
+      margin: 0 auto;
+    }
+
+    /* Header */
+    .header { margin-bottom: 2rem; }
+    .header h1 { font-size: 28px; font-weight: 600; letter-spacing: -0.5px; }
+    .header p { font-size: 15px; color: #666; margin-top: 4px; }
+
+    /* Card */
+    .card {
+      background: #fff;
+      border: 1px solid #e5e5e5;
+      border-radius: 12px;
+      padding: 1.5rem;
+      margin-bottom: 1rem;
+    }
+
+    .card h2 { font-size: 15px; font-weight: 600; margin-bottom: 1rem; color: #111; }
+
+    /* API Key row */
+    .api-row { display: flex; gap: 8px; }
+    .api-row input {
+      flex: 1;
+      padding: 10px 14px;
+      font-size: 14px;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      background: #fafafa;
+      color: #111;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    .api-row input:focus { border-color: #888; }
+
+    .btn {
+      padding: 10px 20px;
+      font-size: 14px;
+      font-weight: 500;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: opacity 0.2s, transform 0.1s;
+    }
+    .btn:active { transform: scale(0.98); }
+    .btn-dark { background: #111; color: #fff; }
+    .btn-dark:hover { opacity: 0.85; }
+    .btn-dark:disabled { opacity: 0.35; cursor: not-allowed; }
+
+    /* Upload zone */
+    .upload-zone {
+      border: 2px dashed #ddd;
+      border-radius: 10px;
+      padding: 2.5rem;
+      text-align: center;
+      cursor: pointer;
+      background: #fafafa;
+      transition: border-color 0.2s, background 0.2s;
+    }
+    .upload-zone:hover { border-color: #aaa; }
+    .upload-zone.drag { border-color: #4a90d9; background: #eef5fd; }
+    .upload-zone svg { opacity: 0.3; margin-bottom: 10px; }
+    .upload-zone p { font-size: 14px; color: #555; }
+    .upload-zone span { font-size: 12px; color: #999; }
+
+    /* File chip */
+    .file-chip {
+      display: none;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 14px;
+      background: #f0f0f0;
+      border-radius: 20px;
+      font-size: 13px;
+      color: #444;
+      margin-top: 12px;
+      width: fit-content;
+    }
+
+    /* Analyze button */
+    .analyze-btn {
+      width: 100%;
+      padding: 14px;
+      font-size: 15px;
+      font-weight: 600;
+      background: #111;
+      color: #fff;
+      border: none;
+      border-radius: 10px;
+      cursor: pointer;
+      margin: 1rem 0;
+      transition: opacity 0.2s;
+    }
+    .analyze-btn:hover:not(:disabled) { opacity: 0.85; }
+    .analyze-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+
+    /* Status */
+    .status-bar {
+      display: none;
+      padding: 12px 16px;
+      background: #f0f0f0;
+      border-radius: 8px;
+      font-size: 13px;
+      color: #555;
+      margin-bottom: 1rem;
+      animation: pulse 1.5s infinite;
+    }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.5} }
+
+    /* Results */
+    .results { display: none; }
+
+    /* Score grid */
+    .score-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 10px;
+      margin-bottom: 1rem;
+    }
+    .score-card {
+      background: #f7f7f5;
+      border-radius: 10px;
+      padding: 16px 12px;
+      text-align: center;
+    }
+    .score-card .label {
+      font-size: 11px;
+      color: #888;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 8px;
+    }
+    .score-card .score { font-size: 28px; font-weight: 600; }
+    .score-card .score.high { color: #1a8a5a; }
+    .score-card .score.mid  { color: #c47a0a; }
+    .score-card .score.low  { color: #d13030; }
+
+    /* Verdict */
+    .verdict-card {
+      background: #f7f7f5;
+      border-radius: 10px;
+      padding: 1.25rem;
+      margin-bottom: 1rem;
+    }
+    .verdict-card h3 { font-size: 14px; font-weight: 600; margin-bottom: 10px; color: #111; }
+    .verdict-card p { font-size: 14px; color: #444; line-height: 1.7; white-space: pre-wrap; }
+
+    /* Section cards */
+    .section-card {
+      background: #fff;
+      border: 1px solid #eee;
+      border-radius: 10px;
+      padding: 1.25rem;
+      margin-bottom: 8px;
+    }
+    .section-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+    .section-header h4 { font-size: 14px; font-weight: 600; color: #111; }
+    .badge {
+      font-size: 11px;
+      padding: 3px 10px;
+      border-radius: 20px;
+      font-weight: 600;
+    }
+    .badge.high { background: #e0f5ea; color: #145c38; }
+    .badge.mid  { background: #fef3e0; color: #7a4d00; }
+    .badge.low  { background: #fdeaea; color: #7a1c1c; }
+    .section-card p { font-size: 13px; color: #555; line-height: 1.65; }
+
+    /* Tip box */
+    .tip-box {
+      background: #fffbf0;
+      border: 1px solid #f0e0a0;
+      border-radius: 8px;
+      padding: 12px 16px;
+      font-size: 13px;
+      color: #7a5a00;
+      margin-bottom: 1rem;
+    }
+
+    /* Footer */
+    .footer { text-align: center; font-size: 12px; color: #bbb; margin-top: 2rem; padding-bottom: 1rem; }
+
+    @media (max-width: 500px) {
+      .score-grid { grid-template-columns: repeat(2, 1fr); }
+    }
+  </style>
+</head>
+<body>
+
+<div class="app">
+
+  <div class="header">
+    <h1>PitchSense</h1>
+    <p>AI agent that audits your startup pitch deck like a VC would</p>
+  </div>
+
+  <!-- API Key -->
+  <div class="card">
+    <h2>Gemini API Key</h2>
+    <div class="api-row">
+      <input type="password" id="api-key" placeholder="Get free key at aistudio.google.com → Get API Key" />
+      <button class="btn btn-dark" onclick="saveKey()">Save</button>
+    </div>
+  </div>
+
+  <!-- Upload -->
+  <div class="card">
+    <h2>Upload Pitch Deck</h2>
+    <div class="tip-box">
+      Tip: If PDF text extraction fails (image-based PDFs), save your deck content as a <strong>.txt</strong> file and upload that instead.
+    </div>
+    <div class="upload-zone" id="upload-zone"
+      onclick="document.getElementById('file-input').click()"
+      ondragover="drag(event)"
+      ondragleave="undrag(event)"
+      ondrop="drop(event)">
+      <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#333" stroke-width="1.5">
+        <path d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/>
+      </svg>
+      <p>Drop PDF or TXT here</p>
+      <span>or click to browse</span>
+    </div>
+    <input type="file" id="file-input" accept=".pdf,.txt" style="display:none" onchange="handleFile(event)" />
+    <div class="file-chip" id="file-chip">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
+        <polyline points="14 2 14 8 20 8"/>
+      </svg>
+      <span id="file-name">file.pdf</span>
+    </div>
+  </div>
+
+  <button class="analyze-btn" id="analyze-btn" disabled onclick="analyze()">
+    Analyze pitch deck
+  </button>
+
+  <div class="status-bar" id="status-bar">Starting analysis...</div>
+
+  <!-- Results -->
+  <div class="results" id="results">
+
+    <div class="card">
+      <h2>Section scores</h2>
+      <div class="score-grid" id="score-grid"></div>
+    </div>
+
+    <div class="card">
+      <h2>Overall verdict</h2>
+      <div class="verdict-card">
+        <h3>VC assessment</h3>
+        <p id="verdict-text"></p>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Section breakdown</h2>
+      <div id="sections-container"></div>
+    </div>
+
+  </div>
+
+  <div class="footer">PitchSense · Powered by Gemini API · Built by Rishikesh Reddy</div>
+
+</div>
+
+<script>
+  let extractedText = "";
+  let geminiKey = "";
+
+  // PDF.js worker
+  if (window.pdfjsLib) {
+    pdfjsLib.GlobalWorkerOptions.workerSrc =
+      "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+  }
+
+  function saveKey() {
+    const val = document.getElementById("api-key").value.trim();
+    if (!val) return alert("Please paste your Gemini API key first.");
+    geminiKey = val;
+    document.getElementById("api-key").value = "✓ Key saved";
+    document.getElementById("api-key").disabled = true;
+    checkReady();
+  }
+
+  function checkReady() {
+    document.getElementById("analyze-btn").disabled = !(geminiKey && extractedText);
+  }
+
+  function drag(e) {
+    e.preventDefault();
+    document.getElementById("upload-zone").classList.add("drag");
+  }
+  function undrag(e) {
+    e.preventDefault();
+    document.getElementById("upload-zone").classList.remove("drag");
+  }
+  function drop(e) {
+    e.preventDefault();
+    undrag(e);
+    const file = e.dataTransfer.files[0];
+    if (file) processFile(file);
+  }
+  function handleFile(e) {
+    const file = e.target.files[0];
+    if (file) processFile(file);
+  }
+
+  function processFile(file) {
+    document.getElementById("file-name").textContent = file.name;
+    document.getElementById("file-chip").style.display = "flex";
+
+    if (file.type === "text/plain") {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        extractedText = e.target.result;
+        checkReady();
+      };
+      reader.readAsText(file);
+    } else {
+      // Try PDF extraction
+      const reader = new FileReader();
+      reader.onload = async (e) => {
+        try {
+          const pdf = await pdfjsLib.getDocument({ data: e.target.result }).promise;
+          let text = "";
+          for (let i = 1; i <= pdf.numPages; i++) {
+            const page = await pdf.getPage(i);
+            const content = await page.getTextContent();
+            text += content.items.map(s => s.str).join(" ") + "\n";
+          }
+          if (text.trim().length < 50) {
+            extractedText = "[PDF appears to be image-based. Please export your deck content to a .txt file and upload that instead.]";
+          } else {
+            extractedText = text;
+          }
+          checkReady();
+        } catch (err) {
+          extractedText = "[PDF parsing failed. Please save your deck as a .txt file and upload that.]";
+          checkReady();
+        }
+      };
+      reader.readAsArrayBuffer(file);
+    }
+  }
+
+  async function callGemini(prompt) {
+    const res = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiKey}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: prompt }] }],
+          generationConfig: { temperature: 0.4, maxOutputTokens: 500 }
+        })
+      }
+    );
+    const data = await res.json();
+    if (data.error) throw new Error(data.error.message);
+    return data.candidates[0].content.parts[0].text;
+  }
+
+  function parseScore(text) {
+    const match = text.match(/\b(10|[1-9])\s*\/\s*10/) || text.match(/score[:\s]+(\d+)/i);
+    return match ? Math.min(10, Math.max(1, parseInt(match[1]))) : 5;
+  }
+
+  function scoreClass(s) { return s >= 7 ? "high" : s >= 5 ? "mid" : "low"; }
+
+  async function analyze() {
+    const btn = document.getElementById("analyze-btn");
+    const status = document.getElementById("status-bar");
+    btn.disabled = true;
+    document.getElementById("results").style.display = "none";
+    status.style.display = "block";
+
+    const deckSnippet = extractedText.slice(0, 3500);
+
+    const evalPrompts = {
+      "Problem": `You are a senior VC partner reviewing a startup pitch deck. Evaluate ONLY the problem statement section. Is the problem clear, specific, painful, and affecting a real market? Give a score out of 10, then 2-3 sentences of honest, specific feedback. Start with "Score: X/10" on the first line.\n\nPitch deck:\n${deckSnippet}`,
+      "Solution": `You are a senior VC partner reviewing a startup pitch deck. Evaluate ONLY the solution. Is it differentiated, defensible, and well-matched to the problem? Give a score out of 10, then 2-3 sentences of honest, specific feedback. Start with "Score: X/10" on the first line.\n\nPitch deck:\n${deckSnippet}`,
+      "Market Size": `You are a senior VC partner reviewing a startup pitch deck. Evaluate ONLY the market size section. Are TAM/SAM/SOM numbers credible, well-sourced, and compelling? Give a score out of 10, then 2-3 sentences. Start with "Score: X/10" on the first line.\n\nPitch deck:\n${deckSnippet}`,
+      "Traction": `You are a senior VC partner reviewing a startup pitch deck. Evaluate ONLY the traction. Are there real metrics — revenue, users, growth rate — or just vague claims? Give a score out of 10, then 2-3 sentences. Start with "Score: X/10" on the first line.\n\nPitch deck:\n${deckSnippet}`
+    };
+
+    const sections = Object.keys(evalPrompts);
+    const results = {};
+
+    for (const section of sections) {
+      status.textContent = `Evaluating ${section}...`;
+      try {
+        results[section] = await callGemini(evalPrompts[section]);
+      } catch (e) {
+        results[section] = `Score: 5/10\nEvaluation failed: ${e.message}`;
+      }
+    }
+
+    // Synthesis
+    status.textContent = "Synthesizing overall verdict...";
+    const combined = sections.map(s => `${s}:\n${results[s]}`).join("\n\n");
+    const synthPrompt = `You are a senior VC partner. Based on these section evaluations of a startup pitch deck:\n\n${combined}\n\nWrite a concise overall verdict (120-150 words) that includes:\n1. Overall score out of 10\n2. The single most critical weakness to fix first\n3. Three specific, actionable improvements\n\nBe direct and honest. No fluff.`;
+
+    let verdict = "";
+    try {
+      verdict = await callGemini(synthPrompt);
+    } catch (e) {
+      verdict = "Synthesis failed: " + e.message;
+    }
+
+    // Render scores
+    const scoreGrid = document.getElementById("score-grid");
+    scoreGrid.innerHTML = "";
+    sections.forEach(s => {
+      const score = parseScore(results[s]);
+      const cls = scoreClass(score);
+      scoreGrid.innerHTML += `
+        <div class="score-card">
+          <div class="label">${s}</div>
+          <div class="score ${cls}">${score}/10</div>
+        </div>`;
+    });
+
+    // Render verdict
+    document.getElementById("verdict-text").textContent = verdict;
+
+    // Render sections
+    const container = document.getElementById("sections-container");
+    container.innerHTML = "";
+    sections.forEach(s => {
+      const score = parseScore(results[s]);
+      const cls = scoreClass(score);
+      const feedback = results[s].replace(/^Score:\s*\d+\s*\/\s*10\s*/i, "").trim();
+      container.innerHTML += `
+        <div class="section-card">
+          <div class="section-header">
+            <h4>${s}</h4>
+            <span class="badge ${cls}">${score}/10</span>
+          </div>
+          <p>${feedback}</p>
+        </div>`;
+    });
+
+    status.style.display = "none";
+    document.getElementById("results").style.display = "block";
+    btn.disabled = false;
+
+    document.getElementById("results").scrollIntoView({ behavior: "smooth" });
+  }
+</script>
+
+</body>
+</html>
