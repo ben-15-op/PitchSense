@@ -5,472 +5,953 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>PitchSense — AI Pitch Deck Auditor</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet" />
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
+    :root {
+      --bg: #f0ede8;
+      --surface: #ffffff;
+      --border: #e0dbd3;
+      --accent: #c84b2f;
+      --accent-soft: #f5e6e2;
+      --text-primary: #1a1714;
+      --text-secondary: #6b6560;
+      --text-muted: #a09b96;
+      --radius: 14px;
+      --shadow: 0 2px 16px rgba(0,0,0,0.07);
+    }
+
     body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-      background: #f5f5f3;
-      color: #1a1a1a;
+      font-family: 'DM Sans', sans-serif;
+      background: var(--bg);
+      color: var(--text-primary);
       min-height: 100vh;
-      padding: 2rem 1rem;
+      padding: 2.5rem 1rem 4rem;
     }
 
     .app {
-      max-width: 760px;
+      max-width: 780px;
       margin: 0 auto;
     }
 
-    /* Header */
-    .header { margin-bottom: 2rem; }
-    .header h1 { font-size: 28px; font-weight: 600; letter-spacing: -0.5px; }
-    .header p { font-size: 15px; color: #666; margin-top: 4px; }
+    /* ── Header ── */
+    .header {
+      margin-bottom: 2.5rem;
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: 1rem;
+    }
+    .header-left {}
+    .logo-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 4px;
+    }
+    .logo-badge {
+      width: 34px;
+      height: 34px;
+      background: var(--accent);
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 16px;
+    }
+    .header h1 {
+      font-family: 'Syne', sans-serif;
+      font-size: 26px;
+      font-weight: 800;
+      letter-spacing: -0.5px;
+      color: var(--text-primary);
+    }
+    .header p {
+      font-size: 14px;
+      color: var(--text-secondary);
+      font-weight: 400;
+    }
+    .status-pill {
+      font-size: 12px;
+      padding: 5px 12px;
+      border-radius: 20px;
+      background: #e8f5e9;
+      color: #2e7d32;
+      font-weight: 500;
+      white-space: nowrap;
+      display: none;
+    }
+    .status-pill.visible { display: inline-block; }
 
-    /* Card */
+    /* ── Card ── */
     .card {
-      background: #fff;
-      border: 1px solid #e5e5e5;
-      border-radius: 12px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
       padding: 1.5rem;
       margin-bottom: 1rem;
+      box-shadow: var(--shadow);
+    }
+    .card-label {
+      font-family: 'Syne', sans-serif;
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1.2px;
+      color: var(--text-muted);
+      margin-bottom: 12px;
     }
 
-    .card h2 { font-size: 15px; font-weight: 600; margin-bottom: 1rem; color: #111; }
-
-    /* API Key row */
+    /* ── API Key ── */
     .api-row { display: flex; gap: 8px; }
     .api-row input {
       flex: 1;
       padding: 10px 14px;
       font-size: 14px;
-      border: 1px solid #ddd;
-      border-radius: 8px;
-      background: #fafafa;
-      color: #111;
+      font-family: 'DM Sans', sans-serif;
+      border: 1.5px solid var(--border);
+      border-radius: 9px;
+      background: #faf9f7;
+      color: var(--text-primary);
       outline: none;
       transition: border-color 0.2s;
     }
-    .api-row input:focus { border-color: #888; }
+    .api-row input:focus { border-color: var(--accent); }
+    .api-row input::placeholder { color: var(--text-muted); }
 
+    /* ── Buttons ── */
     .btn {
       padding: 10px 20px;
       font-size: 14px;
       font-weight: 500;
+      font-family: 'DM Sans', sans-serif;
       border: none;
-      border-radius: 8px;
+      border-radius: 9px;
       cursor: pointer;
-      transition: opacity 0.2s, transform 0.1s;
+      transition: all 0.2s;
+      white-space: nowrap;
     }
-    .btn:active { transform: scale(0.98); }
-    .btn-dark { background: #111; color: #fff; }
-    .btn-dark:hover { opacity: 0.85; }
-    .btn-dark:disabled { opacity: 0.35; cursor: not-allowed; }
+    .btn-primary {
+      background: var(--accent);
+      color: #fff;
+    }
+    .btn-primary:hover { background: #b03f25; transform: translateY(-1px); }
+    .btn-primary:active { transform: translateY(0); }
+    .btn-primary:disabled { background: #d4a99e; cursor: not-allowed; transform: none; }
+    .btn-ghost {
+      background: transparent;
+      color: var(--text-secondary);
+      border: 1.5px solid var(--border);
+    }
+    .btn-ghost:hover { border-color: #aaa; color: var(--text-primary); }
 
-    /* Upload zone */
-    .upload-zone {
-      border: 2px dashed #ddd;
-      border-radius: 10px;
-      padding: 2.5rem;
+    /* ── Drop Zone ── */
+    .drop-zone {
+      border: 2px dashed var(--border);
+      border-radius: 12px;
+      padding: 2.5rem 2rem;
       text-align: center;
       cursor: pointer;
-      background: #fafafa;
-      transition: border-color 0.2s, background 0.2s;
+      transition: all 0.2s;
+      background: #faf9f7;
     }
-    .upload-zone:hover { border-color: #aaa; }
-    .upload-zone.drag { border-color: #4a90d9; background: #eef5fd; }
-    .upload-zone svg { opacity: 0.3; margin-bottom: 10px; }
-    .upload-zone p { font-size: 14px; color: #555; }
-    .upload-zone span { font-size: 12px; color: #999; }
+    .drop-zone:hover, .drop-zone.dragging {
+      border-color: var(--accent);
+      background: var(--accent-soft);
+    }
+    .drop-icon {
+      font-size: 32px;
+      margin-bottom: 10px;
+      opacity: 0.6;
+    }
+    .drop-title {
+      font-family: 'Syne', sans-serif;
+      font-size: 15px;
+      font-weight: 700;
+      margin-bottom: 4px;
+    }
+    .drop-sub {
+      font-size: 13px;
+      color: var(--text-muted);
+    }
+    #file-input { display: none; }
 
-    /* File chip */
-    .file-chip {
+    /* File selected state */
+    .file-selected {
       display: none;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 16px;
+      background: var(--accent-soft);
+      border-radius: 10px;
+      border: 1.5px solid #e8c4bb;
+    }
+    .file-selected.visible { display: flex; }
+    .file-icon { font-size: 24px; }
+    .file-info { flex: 1; }
+    .file-name { font-size: 14px; font-weight: 500; }
+    .file-meta { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+
+    /* ── Context / Pitch Type ── */
+    .options-row {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-bottom: 12px;
+    }
+    .option-chip {
+      padding: 7px 14px;
+      font-size: 13px;
+      border-radius: 20px;
+      border: 1.5px solid var(--border);
+      background: #faf9f7;
+      cursor: pointer;
+      transition: all 0.15s;
+      font-family: 'DM Sans', sans-serif;
+    }
+    .option-chip:hover { border-color: var(--accent); color: var(--accent); }
+    .option-chip.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+
+    textarea.context-input {
+      width: 100%;
+      padding: 11px 14px;
+      font-size: 14px;
+      font-family: 'DM Sans', sans-serif;
+      border: 1.5px solid var(--border);
+      border-radius: 9px;
+      background: #faf9f7;
+      color: var(--text-primary);
+      resize: vertical;
+      min-height: 80px;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    textarea.context-input:focus { border-color: var(--accent); }
+    textarea.context-input::placeholder { color: var(--text-muted); }
+
+    /* ── Analyse Button Row ── */
+    .analyze-row {
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+      margin-top: 1rem;
+    }
+
+    /* ── Progress ── */
+    .progress-card { display: none; }
+    .progress-card.visible { display: block; }
+    .progress-steps { display: flex; flex-direction: column; gap: 8px; }
+    .step {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 14px;
+      color: var(--text-muted);
+      transition: color 0.3s;
+    }
+    .step.active { color: var(--text-primary); }
+    .step.done { color: #2e7d32; }
+    .step-icon {
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      border: 2px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 11px;
+      flex-shrink: 0;
+      transition: all 0.3s;
+    }
+    .step.active .step-icon {
+      border-color: var(--accent);
+      background: var(--accent-soft);
+      animation: pulse 1.2s ease-in-out infinite;
+    }
+    .step.done .step-icon {
+      border-color: #4caf50;
+      background: #e8f5e9;
+      color: #4caf50;
+    }
+    @keyframes pulse {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.12); }
+    }
+
+    /* ── Results ── */
+    .results-card { display: none; }
+    .results-card.visible { display: block; }
+
+    .score-banner {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: var(--text-primary);
+      color: #fff;
+      border-radius: 10px;
+      padding: 18px 22px;
+      margin-bottom: 1.5rem;
+    }
+    .score-label { font-size: 13px; opacity: 0.7; margin-bottom: 2px; }
+    .score-value {
+      font-family: 'Syne', sans-serif;
+      font-size: 42px;
+      font-weight: 800;
+      line-height: 1;
+    }
+    .score-suffix { font-size: 18px; opacity: 0.5; }
+    .score-grade {
+      font-family: 'Syne', sans-serif;
+      font-size: 22px;
+      font-weight: 700;
+      padding: 8px 18px;
+      border-radius: 8px;
+      background: rgba(255,255,255,0.12);
+    }
+
+    .dimensions-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 10px;
+      margin-bottom: 1.5rem;
+    }
+    .dim-card {
+      padding: 14px;
+      border-radius: 10px;
+      border: 1.5px solid var(--border);
+      background: #faf9f7;
+    }
+    .dim-name {
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      color: var(--text-muted);
+      margin-bottom: 6px;
+    }
+    .dim-score-row {
+      display: flex;
       align-items: center;
       gap: 8px;
-      padding: 6px 14px;
-      background: #f0f0f0;
-      border-radius: 20px;
-      font-size: 13px;
-      color: #444;
-      margin-top: 12px;
-      width: fit-content;
+    }
+    .dim-score-num {
+      font-family: 'Syne', sans-serif;
+      font-size: 22px;
+      font-weight: 700;
+      line-height: 1;
+    }
+    .dim-bar-wrap {
+      flex: 1;
+      height: 5px;
+      background: var(--border);
+      border-radius: 3px;
+      overflow: hidden;
+    }
+    .dim-bar {
+      height: 100%;
+      border-radius: 3px;
+      background: var(--accent);
+      transition: width 0.8s cubic-bezier(.4,0,.2,1);
     }
 
-    /* Analyze button */
-    .analyze-btn {
-      width: 100%;
-      padding: 14px;
-      font-size: 15px;
-      font-weight: 600;
-      background: #111;
-      color: #fff;
-      border: none;
+    .section-title {
+      font-family: 'Syne', sans-serif;
+      font-size: 14px;
+      font-weight: 700;
+      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .feedback-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-bottom: 1.5rem;
+    }
+    .feedback-item {
+      display: flex;
+      gap: 10px;
+      padding: 12px 14px;
+      border-radius: 9px;
+      font-size: 14px;
+      line-height: 1.5;
+      border: 1.5px solid transparent;
+    }
+    .feedback-item.strength {
+      background: #f0faf1;
+      border-color: #c3e6c8;
+    }
+    .feedback-item.weakness {
+      background: #fff8f6;
+      border-color: #f4d0c8;
+    }
+    .feedback-item.suggestion {
+      background: #f5f0ff;
+      border-color: #d8cef8;
+    }
+    .fi-icon { font-size: 16px; flex-shrink: 0; margin-top: 1px; }
+
+    .verdict-box {
+      padding: 16px 18px;
+      background: #faf9f7;
       border-radius: 10px;
-      cursor: pointer;
-      margin: 1rem 0;
-      transition: opacity 0.2s;
+      border: 1.5px solid var(--border);
+      font-size: 14px;
+      line-height: 1.7;
+      color: var(--text-secondary);
     }
-    .analyze-btn:hover:not(:disabled) { opacity: 0.85; }
-    .analyze-btn:disabled { opacity: 0.35; cursor: not-allowed; }
 
-    /* Status */
-    .status-bar {
+    .actions-row {
+      display: flex;
+      gap: 8px;
+      margin-top: 1.5rem;
+      flex-wrap: wrap;
+    }
+
+    /* ── Error ── */
+    .error-box {
       display: none;
       padding: 12px 16px;
-      background: #f0f0f0;
-      border-radius: 8px;
-      font-size: 13px;
-      color: #555;
-      margin-bottom: 1rem;
-      animation: pulse 1.5s infinite;
+      background: #fff3f0;
+      border: 1.5px solid #f4c5bb;
+      border-radius: 9px;
+      font-size: 14px;
+      color: #9b2c12;
+      margin-top: 10px;
     }
-    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.5} }
+    .error-box.visible { display: block; }
 
-    /* Results */
-    .results { display: none; }
-
-    /* Score grid */
-    .score-grid {
-      display: grid;
-      grid-template-columns: repeat(4, 1fr);
-      gap: 10px;
-      margin-bottom: 1rem;
-    }
-    .score-card {
-      background: #f7f7f5;
-      border-radius: 10px;
-      padding: 16px 12px;
+    /* ── Footer ── */
+    .footer {
       text-align: center;
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-top: 3rem;
     }
-    .score-card .label {
-      font-size: 11px;
-      color: #888;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-      margin-bottom: 8px;
-    }
-    .score-card .score { font-size: 28px; font-weight: 600; }
-    .score-card .score.high { color: #1a8a5a; }
-    .score-card .score.mid  { color: #c47a0a; }
-    .score-card .score.low  { color: #d13030; }
-
-    /* Verdict */
-    .verdict-card {
-      background: #f7f7f5;
-      border-radius: 10px;
-      padding: 1.25rem;
-      margin-bottom: 1rem;
-    }
-    .verdict-card h3 { font-size: 14px; font-weight: 600; margin-bottom: 10px; color: #111; }
-    .verdict-card p { font-size: 14px; color: #444; line-height: 1.7; white-space: pre-wrap; }
-
-    /* Section cards */
-    .section-card {
-      background: #fff;
-      border: 1px solid #eee;
-      border-radius: 10px;
-      padding: 1.25rem;
-      margin-bottom: 8px;
-    }
-    .section-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 8px;
-    }
-    .section-header h4 { font-size: 14px; font-weight: 600; color: #111; }
-    .badge {
-      font-size: 11px;
-      padding: 3px 10px;
-      border-radius: 20px;
-      font-weight: 600;
-    }
-    .badge.high { background: #e0f5ea; color: #145c38; }
-    .badge.mid  { background: #fef3e0; color: #7a4d00; }
-    .badge.low  { background: #fdeaea; color: #7a1c1c; }
-    .section-card p { font-size: 13px; color: #555; line-height: 1.65; }
-
-    /* Tip box */
-    .tip-box {
-      background: #fffbf0;
-      border: 1px solid #f0e0a0;
-      border-radius: 8px;
-      padding: 12px 16px;
-      font-size: 13px;
-      color: #7a5a00;
-      margin-bottom: 1rem;
-    }
-
-    /* Footer */
-    .footer { text-align: center; font-size: 12px; color: #bbb; margin-top: 2rem; padding-bottom: 1rem; }
 
     @media (max-width: 500px) {
-      .score-grid { grid-template-columns: repeat(2, 1fr); }
+      .header { flex-direction: column; align-items: flex-start; }
+      .score-banner { flex-direction: column; gap: 12px; align-items: flex-start; }
+      .dimensions-grid { grid-template-columns: 1fr 1fr; }
     }
   </style>
 </head>
 <body>
-
 <div class="app">
 
-  <div class="header">
-    <h1>PitchSense</h1>
-    <p>AI agent that audits your startup pitch deck like a VC would</p>
-  </div>
+  <!-- Header -->
+  <header class="header">
+    <div class="header-left">
+      <div class="logo-row">
+        <div class="logo-badge">🎯</div>
+        <h1>PitchSense</h1>
+      </div>
+      <p>AI-powered pitch deck auditor — upload, analyse, improve.</p>
+    </div>
+    <div class="status-pill" id="key-status">API key saved ✓</div>
+  </header>
 
-  <!-- API Key -->
+  <!-- Step 1: API Key -->
   <div class="card">
-    <h2>Gemini API Key</h2>
+    <div class="card-label">Step 1 — Google API Key</div>
     <div class="api-row">
-      <input type="password" id="api-key" placeholder="Get free key at aistudio.google.com → Get API Key" />
-      <button class="btn btn-dark" onclick="saveKey()">Save</button>
+      <input type="password" id="api-key" placeholder="enter key here!" autocomplete="off" />
+      <button class="btn btn-primary" onclick="saveKey()">Save</button>
     </div>
+    <div class="error-box" id="key-error"></div>
   </div>
 
-  <!-- Upload -->
+  <!-- Step 2: Upload -->
   <div class="card">
-    <h2>Upload Pitch Deck</h2>
-    <div class="tip-box">
-      Tip: If PDF text extraction fails (image-based PDFs), save your deck content as a <strong>.txt</strong> file and upload that instead.
+    <div class="card-label">Step 2 — Upload Pitch Deck</div>
+    <div class="drop-zone" id="drop-zone" onclick="document.getElementById('file-input').click()">
+      <div class="drop-icon">📄</div>
+      <div class="drop-title">Drop your PDF here</div>
+      <div class="drop-sub">or click to browse · Max 20 MB</div>
     </div>
-    <div class="upload-zone" id="upload-zone"
-      onclick="document.getElementById('file-input').click()"
-      ondragover="drag(event)"
-      ondragleave="undrag(event)"
-      ondrop="drop(event)">
-      <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#333" stroke-width="1.5">
-        <path d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/>
-      </svg>
-      <p>Drop PDF or TXT here</p>
-      <span>or click to browse</span>
-    </div>
-    <input type="file" id="file-input" accept=".pdf,.txt" style="display:none" onchange="handleFile(event)" />
-    <div class="file-chip" id="file-chip">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-        <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
-        <polyline points="14 2 14 8 20 8"/>
-      </svg>
-      <span id="file-name">file.pdf</span>
+    <input type="file" id="file-input" accept=".pdf" />
+    <div class="file-selected" id="file-selected">
+      <div class="file-icon">📋</div>
+      <div class="file-info">
+        <div class="file-name" id="file-name">—</div>
+        <div class="file-meta" id="file-meta">—</div>
+      </div>
+      <button class="btn btn-ghost" onclick="clearFile()" style="padding:7px 12px;font-size:12px;">✕ Remove</button>
     </div>
   </div>
 
-  <button class="analyze-btn" id="analyze-btn" disabled onclick="analyze()">
-    Analyze pitch deck
-  </button>
-
-  <div class="status-bar" id="status-bar">Starting analysis...</div>
-
-  <!-- Results -->
-  <div class="results" id="results">
-
-    <div class="card">
-      <h2>Section scores</h2>
-      <div class="score-grid" id="score-grid"></div>
+  <!-- Step 3: Context -->
+  <div class="card">
+    <div class="card-label">Step 3 — Context (optional)</div>
+    <p style="font-size:13px;color:var(--text-muted);margin-bottom:12px;">What kind of pitch is this?</p>
+    <div class="options-row" id="pitch-type-options">
+      <div class="option-chip active" data-value="Seed-stage startup">Seed Stage</div>
+      <div class="option-chip" data-value="Series A startup">Series A</div>
+      <div class="option-chip" data-value="Series B+ startup">Series B+</div>
+      <div class="option-chip" data-value="B2B SaaS">B2B SaaS</div>
+      <div class="option-chip" data-value="Consumer app">Consumer App</div>
+      <div class="option-chip" data-value="Deep tech / hardware">Deep Tech</div>
     </div>
+    <textarea class="context-input" id="context-input" placeholder="Any additional context — target investors, industry, what you've already validated…"></textarea>
+    <div class="analyze-row">
+      <button class="btn btn-ghost" onclick="clearAll()">Reset</button>
+      <button class="btn btn-primary" id="analyze-btn" onclick="analyze()">Analyse Deck →</button>
+    </div>
+    <div class="error-box" id="analyze-error"></div>
+  </div>
 
-    <div class="card">
-      <h2>Overall verdict</h2>
-      <div class="verdict-card">
-        <h3>VC assessment</h3>
-        <p id="verdict-text"></p>
+  <!-- Progress -->
+  <div class="card progress-card" id="progress-card">
+    <div class="card-label">Analysing…</div>
+    <div class="progress-steps">
+      <div class="step active" id="step-extract">
+        <div class="step-icon" id="si-extract">1</div>
+        <span>Extracting text from PDF</span>
+      </div>
+      <div class="step" id="step-send">
+        <div class="step-icon" id="si-send">2</div>
+        <span>Sending to Gemini</span>
+      </div>
+      <div class="step" id="step-parse">
+        <div class="step-icon" id="si-parse">3</div>
+        <span>Parsing audit report</span>
       </div>
     </div>
-
-    <div class="card">
-      <h2>Section breakdown</h2>
-      <div id="sections-container"></div>
-    </div>
-
   </div>
 
-  <div class="footer">PitchSense · Powered by Gemini API · Built by Rishikesh Reddy</div>
+  <!-- Results -->
+  <div class="card results-card" id="results-card">
+    <div class="card-label">Audit Report</div>
 
+    <!-- Score banner -->
+    <div class="score-banner" id="score-banner">
+      <div>
+        <div class="score-label">Overall Score</div>
+        <div><span class="score-value" id="overall-score">—</span><span class="score-suffix">/10</span></div>
+      </div>
+      <div class="score-grade" id="score-grade">—</div>
+    </div>
+
+    <!-- Dimensions -->
+    <div class="section-title">📊 Dimension Scores</div>
+    <div class="dimensions-grid" id="dimensions-grid"></div>
+
+    <!-- Strengths -->
+    <div class="section-title">💪 Strengths</div>
+    <div class="feedback-list" id="strengths-list"></div>
+
+    <!-- Weaknesses -->
+    <div class="section-title">⚠️ Weaknesses</div>
+    <div class="feedback-list" id="weaknesses-list"></div>
+
+    <!-- Suggestions -->
+    <div class="section-title">💡 Suggestions</div>
+    <div class="feedback-list" id="suggestions-list"></div>
+
+    <!-- Verdict -->
+    <div class="section-title">🏁 Investor Verdict</div>
+    <div class="verdict-box" id="verdict-box">—</div>
+
+    <div class="actions-row">
+      <button class="btn btn-primary" onclick="copyReport()">Copy Report</button>
+      <button class="btn btn-ghost" onclick="clearAll()">New Analysis</button>
+    </div>
+  </div>
+
+  <div class="footer">PitchSense · · Your API key stays in your browser</div>
 </div>
 
 <script>
-  let extractedText = "";
-  let geminiKey = "";
+  // ── Globals ──
+  pdfjsLib.GlobalWorkerOptions.workerSrc =
+    'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 
-  // PDF.js worker
-  if (window.pdfjsLib) {
-    pdfjsLib.GlobalWorkerOptions.workerSrc =
-      "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
-  }
+  let selectedFile = null;
+  let selectedPitchType = 'Seed-stage startup';
 
-  function saveKey() {
-    const val = document.getElementById("api-key").value.trim();
-    if (!val) return alert("Please paste your Gemini API key first.");
-    geminiKey = val;
-    document.getElementById("api-key").value = "✓ Key saved";
-    document.getElementById("api-key").disabled = true;
-    checkReady();
-  }
-
-  function checkReady() {
-    document.getElementById("analyze-btn").disabled = !(geminiKey && extractedText);
-  }
-
-  function drag(e) {
-    e.preventDefault();
-    document.getElementById("upload-zone").classList.add("drag");
-  }
-  function undrag(e) {
-    e.preventDefault();
-    document.getElementById("upload-zone").classList.remove("drag");
-  }
-  function drop(e) {
-    e.preventDefault();
-    undrag(e);
-    const file = e.dataTransfer.files[0];
-    if (file) processFile(file);
-  }
-  function handleFile(e) {
-    const file = e.target.files[0];
-    if (file) processFile(file);
-  }
-
-  function processFile(file) {
-    document.getElementById("file-name").textContent = file.name;
-    document.getElementById("file-chip").style.display = "flex";
-
-    if (file.type === "text/plain") {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        extractedText = e.target.result;
-        checkReady();
-      };
-      reader.readAsText(file);
-    } else {
-      // Try PDF extraction
-      const reader = new FileReader();
-      reader.onload = async (e) => {
-        try {
-          const pdf = await pdfjsLib.getDocument({ data: e.target.result }).promise;
-          let text = "";
-          for (let i = 1; i <= pdf.numPages; i++) {
-            const page = await pdf.getPage(i);
-            const content = await page.getTextContent();
-            text += content.items.map(s => s.str).join(" ") + "\n";
-          }
-          if (text.trim().length < 50) {
-            extractedText = "[PDF appears to be image-based. Please export your deck content to a .txt file and upload that instead.]";
-          } else {
-            extractedText = text;
-          }
-          checkReady();
-        } catch (err) {
-          extractedText = "[PDF parsing failed. Please save your deck as a .txt file and upload that.]";
-          checkReady();
-        }
-      };
-      reader.readAsArrayBuffer(file);
-    }
-  }
-
-  async function callGemini(prompt) {
-    const res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiKey}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }],
-          generationConfig: { temperature: 0.4, maxOutputTokens: 500 }
-        })
-      }
-    );
-    const data = await res.json();
-    if (data.error) throw new Error(data.error.message);
-    return data.candidates[0].content.parts[0].text;
-  }
-
-  function parseScore(text) {
-    const match = text.match(/\b(10|[1-9])\s*\/\s*10/) || text.match(/score[:\s]+(\d+)/i);
-    return match ? Math.min(10, Math.max(1, parseInt(match[1]))) : 5;
-  }
-
-  function scoreClass(s) { return s >= 7 ? "high" : s >= 5 ? "mid" : "low"; }
-
-  async function analyze() {
-    const btn = document.getElementById("analyze-btn");
-    const status = document.getElementById("status-bar");
-    btn.disabled = true;
-    document.getElementById("results").style.display = "none";
-    status.style.display = "block";
-
-    const deckSnippet = extractedText.slice(0, 3500);
-
-    const evalPrompts = {
-      "Problem": `You are a senior VC partner reviewing a startup pitch deck. Evaluate ONLY the problem statement section. Is the problem clear, specific, painful, and affecting a real market? Give a score out of 10, then 2-3 sentences of honest, specific feedback. Start with "Score: X/10" on the first line.\n\nPitch deck:\n${deckSnippet}`,
-      "Solution": `You are a senior VC partner reviewing a startup pitch deck. Evaluate ONLY the solution. Is it differentiated, defensible, and well-matched to the problem? Give a score out of 10, then 2-3 sentences of honest, specific feedback. Start with "Score: X/10" on the first line.\n\nPitch deck:\n${deckSnippet}`,
-      "Market Size": `You are a senior VC partner reviewing a startup pitch deck. Evaluate ONLY the market size section. Are TAM/SAM/SOM numbers credible, well-sourced, and compelling? Give a score out of 10, then 2-3 sentences. Start with "Score: X/10" on the first line.\n\nPitch deck:\n${deckSnippet}`,
-      "Traction": `You are a senior VC partner reviewing a startup pitch deck. Evaluate ONLY the traction. Are there real metrics — revenue, users, growth rate — or just vague claims? Give a score out of 10, then 2-3 sentences. Start with "Score: X/10" on the first line.\n\nPitch deck:\n${deckSnippet}`
-    };
-
-    const sections = Object.keys(evalPrompts);
-    const results = {};
-
-    for (const section of sections) {
-      status.textContent = `Evaluating ${section}...`;
-      try {
-        results[section] = await callGemini(evalPrompts[section]);
-      } catch (e) {
-        results[section] = `Score: 5/10\nEvaluation failed: ${e.message}`;
-      }
-    }
-
-    // Synthesis
-    status.textContent = "Synthesizing overall verdict...";
-    const combined = sections.map(s => `${s}:\n${results[s]}`).join("\n\n");
-    const synthPrompt = `You are a senior VC partner. Based on these section evaluations of a startup pitch deck:\n\n${combined}\n\nWrite a concise overall verdict (120-150 words) that includes:\n1. Overall score out of 10\n2. The single most critical weakness to fix first\n3. Three specific, actionable improvements\n\nBe direct and honest. No fluff.`;
-
-    let verdict = "";
+  // ── Key management ──
+  async function getAvailableModels(apiKey) {
+    let res;
     try {
-      verdict = await callGemini(synthPrompt);
+      res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`);
     } catch (e) {
-      verdict = "Synthesis failed: " + e.message;
+      throw new Error(`Network error (possibly CORS or adblocker): ${e.message}`);
     }
 
-    // Render scores
-    const scoreGrid = document.getElementById("score-grid");
-    scoreGrid.innerHTML = "";
-    sections.forEach(s => {
-      const score = parseScore(results[s]);
-      const cls = scoreClass(score);
-      scoreGrid.innerHTML += `
-        <div class="score-card">
-          <div class="label">${s}</div>
-          <div class="score ${cls}">${score}/10</div>
-        </div>`;
-    });
+    if (!res.ok) {
+      let details = res.statusText;
+      try {
+        const errJson = await res.json();
+        if (errJson && errJson.error && errJson.error.message) {
+          details = errJson.error.message;
+        }
+      } catch (_) {}
+      throw new Error(`API returned status ${res.status}: ${details}`);
+    }
 
-    // Render verdict
-    document.getElementById("verdict-text").textContent = verdict;
+    try {
+      const data = await res.json();
+      return (data.models || [])
+        .filter(m => m.supportedGenerationMethods.includes('generateContent'))
+        .map(m => m.name);
+    } catch (e) {
+      throw new Error('Failed to parse models JSON response.');
+    }
+  }
 
-    // Render sections
-    const container = document.getElementById("sections-container");
-    container.innerHTML = "";
-    sections.forEach(s => {
-      const score = parseScore(results[s]);
-      const cls = scoreClass(score);
-      const feedback = results[s].replace(/^Score:\s*\d+\s*\/\s*10\s*/i, "").trim();
-      container.innerHTML += `
-        <div class="section-card">
-          <div class="section-header">
-            <h4>${s}</h4>
-            <span class="badge ${cls}">${score}/10</span>
-          </div>
-          <p>${feedback}</p>
-        </div>`;
-    });
+  async function saveKey() {
+    const keyInput = document.getElementById('api-key');
+    const key = keyInput.value.trim();
+    const err = document.getElementById('key-error');
+    const status = document.getElementById('key-status');
+    
+    if (!key) {
+      err.textContent = 'Please enter an API key.';
+      err.classList.add('visible');
+      status.classList.remove('visible');
+      return;
+    }
+    
+    err.classList.remove('visible');
+    status.textContent = 'Validating key...';
+    status.style.background = 'var(--accent-soft)';
+    status.style.color = 'var(--accent)';
+    status.classList.add('visible');
+    
+    try {
+      const models = await getAvailableModels(key);
+      if (models.length === 0) {
+        throw new Error('No models supporting content generation found.');
+      }
+      
+      localStorage.setItem('ps_api_key', key);
+      localStorage.setItem('ps_available_models', JSON.stringify(models));
+      
+      status.textContent = 'API key saved ✓';
+      status.style.background = '#e8f5e9';
+      status.style.color = '#2e7d32';
+    } catch (e) {
+      status.classList.remove('visible');
+      err.textContent = `Key validation failed: ${e.message}`;
+      err.classList.add('visible');
+      localStorage.removeItem('ps_api_key');
+      localStorage.removeItem('ps_available_models');
+    }
+  }
 
-    status.style.display = "none";
-    document.getElementById("results").style.display = "block";
+  window.addEventListener('DOMContentLoaded', () => {
+    const saved = localStorage.getItem('ps_api_key');
+    if (saved) {
+      document.getElementById('api-key').value = saved;
+      document.getElementById('key-status').classList.add('visible');
+    }
+  });
+
+  // ── Pitch type chips ──
+  document.getElementById('pitch-type-options').addEventListener('click', e => {
+    const chip = e.target.closest('.option-chip');
+    if (!chip) return;
+    document.querySelectorAll('.option-chip').forEach(c => c.classList.remove('active'));
+    chip.classList.add('active');
+    selectedPitchType = chip.dataset.value;
+  });
+
+  // ── File upload ──
+  const dropZone = document.getElementById('drop-zone');
+  const fileInput = document.getElementById('file-input');
+
+  fileInput.addEventListener('change', e => handleFile(e.target.files[0]));
+
+  dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('dragging'); });
+  dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragging'));
+  dropZone.addEventListener('drop', e => {
+    e.preventDefault();
+    dropZone.classList.remove('dragging');
+    const f = e.dataTransfer.files[0];
+    if (f) handleFile(f);
+  });
+
+  function handleFile(file) {
+    if (!file || file.type !== 'application/pdf') {
+      alert('Please upload a PDF file.');
+      return;
+    }
+    if (file.size > 20 * 1024 * 1024) {
+      alert('File too large. Max 20 MB.');
+      return;
+    }
+    selectedFile = file;
+    document.getElementById('drop-zone').style.display = 'none';
+    const fs = document.getElementById('file-selected');
+    fs.classList.add('visible');
+    document.getElementById('file-name').textContent = file.name;
+    document.getElementById('file-meta').textContent = `${(file.size / 1024).toFixed(0)} KB · PDF`;
+  }
+
+  function clearFile() {
+    selectedFile = null;
+    fileInput.value = '';
+    document.getElementById('drop-zone').style.display = '';
+    document.getElementById('file-selected').classList.remove('visible');
+  }
+
+  // ── Extract text from PDF ──
+  async function extractPdfText(file) {
+    const arrayBuffer = await file.arrayBuffer();
+    const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+    let fullText = '';
+    for (let i = 1; i <= pdf.numPages; i++) {
+      const page = await pdf.getPage(i);
+      const content = await page.getTextContent();
+      const pageText = content.items.map(item => item.str).join(' ');
+      fullText += `\n--- Slide ${i} ---\n${pageText}`;
+    }
+    return fullText.trim();
+  }
+
+  // ── Progress helpers ──
+  function setStep(stepId, state) {
+    const step = document.getElementById(stepId);
+    const stepNum = stepId === 'step-extract' ? '1' : (stepId === 'step-send' ? '2' : '3');
+    const icon = document.getElementById('si-' + stepId.replace('step-', ''));
+    step.classList.remove('active', 'done');
+    icon.textContent = stepNum;
+    if (state === 'active') step.classList.add('active');
+    if (state === 'done') { step.classList.add('done'); icon.textContent = '✓'; }
+  }
+
+  // ── Main analyze function ──
+  async function analyze() {
+    const keyErr = document.getElementById('analyze-error');
+    keyErr.classList.remove('visible');
+
+    const apiKey = localStorage.getItem('ps_api_key') ||
+                   document.getElementById('api-key').value.trim();
+    if (!apiKey) { showAnalyzeError('Please save your API key first.'); return; }
+    if (!selectedFile) { showAnalyzeError('Please upload a PDF first.'); return; }
+
+    const btn = document.getElementById('analyze-btn');
+    btn.disabled = true;
+    btn.textContent = 'Analysing…';
+
+    // Show progress
+    document.getElementById('progress-card').classList.add('visible');
+    document.getElementById('results-card').classList.remove('visible');
+    setStep('step-extract', 'active');
+    setStep('step-send', '');
+    setStep('step-parse', '');
+
+    let pdfText;
+    try {
+      pdfText = await extractPdfText(selectedFile);
+    } catch (e) {
+      showAnalyzeError('Failed to read PDF: ' + e.message);
+      resetBtn(); return;
+    }
+
+    setStep('step-extract', 'done');
+    setStep('step-send', 'active');
+
+    const context = document.getElementById('context-input').value.trim();
+    const systemPrompt = `You are an expert venture capital analyst and pitch deck auditor. Analyse pitch decks with deep insight. Always respond ONLY with valid JSON, no markdown fences, no commentary.`;
+
+    const userPrompt = `Audit this ${selectedPitchType} pitch deck.
+${context ? `Additional context: ${context}` : ''}
+
+Pitch deck text (extracted from PDF, slide by slide):
+${pdfText.slice(0, 12000)}
+
+Return a JSON object with EXACTLY this structure:
+{
+  "overall_score": <number 1-10>,
+  "grade": "<one of: Poor / Below Average / Average / Good / Excellent>",
+  "dimensions": [
+    { "name": "Problem Clarity", "score": <1-10> },
+    { "name": "Solution Strength", "score": <1-10> },
+    { "name": "Market Opportunity", "score": <1-10> },
+    { "name": "Business Model", "score": <1-10> },
+    { "name": "Traction & Validation", "score": <1-10> },
+    { "name": "Team", "score": <1-10> }
+  ],
+  "strengths": ["<strength 1>", "<strength 2>", "<strength 3>"],
+  "weaknesses": ["<weakness 1>", "<weakness 2>", "<weakness 3>"],
+  "suggestions": ["<suggestion 1>", "<suggestion 2>", "<suggestion 3>"],
+  "investor_verdict": "<2-3 sentence honest investor perspective>"
+}`;
+
+    // Select model dynamically
+    let availableModels = [];
+    try {
+      availableModels = JSON.parse(localStorage.getItem('ps_available_models') || '[]');
+    } catch (e) {}
+
+    if (availableModels.length === 0) {
+      availableModels = await getAvailableModels(apiKey);
+      if (availableModels.length > 0) {
+        localStorage.setItem('ps_available_models', JSON.stringify(availableModels));
+      }
+    }
+
+    let modelName = 'models/gemini-1.5-flash';
+    if (availableModels.length > 0) {
+      let match = availableModels.find(m => m.includes('gemini-1.5-flash'));
+      if (!match) match = availableModels.find(m => m.includes('flash'));
+      if (!match) match = availableModels.find(m => m.includes('pro'));
+      if (match) modelName = match;
+      else modelName = availableModels[0];
+    }
+
+    let raw;
+    try {
+      const response = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/${modelName}:generateContent?key=${apiKey}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: userPrompt }] }],
+            systemInstruction: { parts: [{ text: systemPrompt }] },
+            generationConfig: {
+              temperature: 0.4,
+              responseMimeType: "application/json"
+            }
+          })
+        }
+      );
+      if (!response.ok) {
+        const err = await response.json();
+        throw new Error(err.error?.message || `HTTP ${response.status}`);
+      }
+
+      const data = await response.json();
+      raw = data.candidates[0]?.content?.parts[0]?.text || '';
+    } catch (e) {
+      showAnalyzeError('API error: ' + e.message);
+      resetBtn(); return;
+    }
+
+    setStep('step-send', 'done');
+    setStep('step-parse', 'active');
+
+    let report;
+    try {
+      const clean = raw.replace(/```json|```/g, '').trim();
+      report = JSON.parse(clean);
+    } catch (e) {
+      showAnalyzeError("Could not parse Gemini's response. Try again.");
+      resetBtn(); return;
+    }
+
+    setStep('step-parse', 'done');
+    renderResults(report);
+    resetBtn();
+  }
+
+  function showAnalyzeError(msg) {
+    const el = document.getElementById('analyze-error');
+    el.textContent = msg;
+    el.classList.add('visible');
+    document.getElementById('progress-card').classList.remove('visible');
+  }
+
+  function resetBtn() {
+    const btn = document.getElementById('analyze-btn');
     btn.disabled = false;
+    btn.textContent = 'Analyse Deck →';
+  }
 
-    document.getElementById("results").scrollIntoView({ behavior: "smooth" });
+  // ── Render results ──
+  function gradeColor(grade) {
+    const map = { 'Poor': '#c0392b', 'Below Average': '#e67e22', 'Average': '#f1c40f',
+                  'Good': '#27ae60', 'Excellent': '#2980b9' };
+    return map[grade] || '#555';
+  }
+
+  function renderResults(r) {
+    // Score banner
+    document.getElementById('overall-score').textContent = r.overall_score;
+    const gradeEl = document.getElementById('score-grade');
+    gradeEl.textContent = r.grade;
+    gradeEl.style.background = gradeColor(r.grade) + '33';
+    gradeEl.style.color = gradeColor(r.grade);
+
+    // Dimensions
+    const grid = document.getElementById('dimensions-grid');
+    grid.innerHTML = r.dimensions.map(d => `
+      <div class="dim-card">
+        <div class="dim-name">${d.name}</div>
+        <div class="dim-score-row">
+          <span class="dim-score-num">${d.score}</span>
+          <div class="dim-bar-wrap"><div class="dim-bar" style="width:${d.score*10}%"></div></div>
+        </div>
+      </div>
+    `).join('');
+
+    // Lists
+    renderFeedbackList('strengths-list', r.strengths, 'strength', '✅');
+    renderFeedbackList('weaknesses-list', r.weaknesses, 'weakness', '⚠️');
+    renderFeedbackList('suggestions-list', r.suggestions, 'suggestion', '💡');
+
+    // Verdict
+    document.getElementById('verdict-box').textContent = r.investor_verdict;
+
+    document.getElementById('results-card').classList.add('visible');
+    document.getElementById('results-card').scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+    // Store for copy
+    window._lastReport = r;
+  }
+
+  function renderFeedbackList(containerId, items, cls, icon) {
+    document.getElementById(containerId).innerHTML = (items || []).map(item => `
+      <div class="feedback-item ${cls}">
+        <span class="fi-icon">${icon}</span>
+        <span>${item}</span>
+      </div>
+    `).join('');
+  }
+
+  // ── Copy report ──
+  function copyReport() {
+    const r = window._lastReport;
+    if (!r) return;
+    const lines = [
+      `PitchSense Audit Report`,
+      `Overall: ${r.overall_score}/10 — ${r.grade}`,
+      ``,
+      `DIMENSIONS`,
+      ...r.dimensions.map(d => `  ${d.name}: ${d.score}/10`),
+      ``,
+      `STRENGTHS`,
+      ...r.strengths.map(s => `  + ${s}`),
+      ``,
+      `WEAKNESSES`,
+      ...r.weaknesses.map(w => `  - ${w}`),
+      ``,
+      `SUGGESTIONS`,
+      ...r.suggestions.map(s => `  → ${s}`),
+      ``,
+      `INVESTOR VERDICT`,
+      r.investor_verdict
+    ];
+    navigator.clipboard.writeText(lines.join('\n'))
+      .then(() => alert('Report copied to clipboard!'));
+  }
+
+  // ── Clear all ──
+  function clearAll() {
+    clearFile();
+    document.getElementById('context-input').value = '';
+    document.getElementById('analyze-error').classList.remove('visible');
+    document.getElementById('progress-card').classList.remove('visible');
+    document.getElementById('results-card').classList.remove('visible');
+    document.querySelectorAll('.option-chip').forEach((c, i) => c.classList.toggle('active', i === 0));
+    selectedPitchType = 'Seed-stage startup';
+    window._lastReport = null;
   }
 </script>
-
 </body>
 </html>
