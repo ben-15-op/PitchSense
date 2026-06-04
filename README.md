@@ -2,7 +2,7 @@
 
 # PitchSense — Developer Guide & Learning Path
 
-This guide explains the architecture, technologies, and code logic of **PitchSense**, and provides a roadmap to help you master and explain this project in a way that shows you built it entirely from scratch.
+This guide explains the architecture, technologies, and code logic of **PitchSense**, 
 
 ---
 
